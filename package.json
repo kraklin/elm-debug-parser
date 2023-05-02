@@ -3,16 +3,18 @@
   "version": "0.0.1",
   "description": "REPLACEME",
   "devDependencies": {
-    "elm-review": "^2.7.5",
-    "elm-test": "latest-0.19.1",
-    "elm-tooling": "1.6.0",
+    "elm-review": "^2.10.1",
+    "elm-tooling": "1.14",
     "elm-verify-examples": "5.2.0",
-    "prettier": "2.4.1"
+    "prettier": "^2.8.8"
   },
   "scripts": {
-    "test": "elm-verify-examples --run-tests && elm-test",
+    "test": "elm-test-rs",
     "postinstall": "elm-tooling install"
   },
   "author": "REPLACEME",
-  "license": "BSD-3-Clause"
+  "license": "BSD-3-Clause",
+  "dependencies": {
+    "elm-doc-preview": "^1.0.7"
+  }
 }
