@@ -1,6 +1,6 @@
 {
   "name": "kraklin/elm-debug-parser",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "description": "Elm parser for parsing Debug.log messages into reasonable tree to work with",
   "devDependencies": {
     "elm-doc-preview": "^1.0.7",

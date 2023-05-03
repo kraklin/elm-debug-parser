@@ -3,7 +3,7 @@
   "name": "kraklin/elm-debug-parser",
   "summary": "Elm parser for parsing Debug.log messages into reasonable tree to work with",
   "license": "BSD-3-Clause",
-  "version": "0.0.1",
+  "version": "1.0.0",
   "exposed-modules": [
     "DebugParser",
     "DebugParser.ElmValue",
