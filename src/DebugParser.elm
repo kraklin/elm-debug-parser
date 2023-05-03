@@ -1,6 +1,6 @@
 module DebugParser exposing (ParsedLog, parse, parseWithOptionalTag)
 
-{-| DebugParser
+{-|
 
 @docs ParsedLog, parse, parseWithOptionalTag
 
@@ -12,7 +12,7 @@ import Parser as P exposing ((|.), (|=), DeadEnd, Parser, Step(..))
 
 {-| Alias to represent parsed log.
 
-Tag is the part of the log before the first colon.
+Tag is part of the log message before the first colon.
 
 -}
 type alias ParsedLog =
@@ -560,7 +560,7 @@ parseValue =
         ]
 
 
-{-| Try to parse Debug.log string.
+{-| Try to parse Debug.log message.
 -}
 parse : String -> Result String ParsedLog
 parse stringToParse =
@@ -576,7 +576,7 @@ parse stringToParse =
         |> Result.mapError deadEndsToString
 
 
-{-| Try to parse Debug.log string including the tag. If it is not parsable, try to parse it without the tag.
+{-| Try to parse Debug.log message including the tag. If it is not parsable, try to parse it without the tag.
 
 This one is safer, but it might be slow due to the fact that it is trying two approaches. It should be used with caution.
 

@@ -1,15 +1,5 @@
-# `replaceme` [![Build Status](https://github.com/REPLACEME-AUTHOR-SLASH-REPO/workflows/CI/badge.svg)](https://github.com/REPLACEME-AUTHOR-SLASH-REPO/actions?query=branch%3Amain)
-
-## What this repo includes
-
-| What                                                              | Why?                                                                                                                                                                                                          |
-| ----------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| lydell/elm-tooling.json                                           | Install dependencies, cache them for faster GitHub Actions builds.                                                                                                                                            |
-| elm-test                                                          | Basic unit testing boilerplate and runs on GitHub Actions.                                                                                                                                                    |
-| [`jfmengels/elm-review`](https://github.com/jfmengels/elm-review) | Statically analyzes your code to find unused code, etc.                                                                                                                                                       |
-| dillonkearns/elm-publish-action                                   | Publishes your package whenever you bump your package version in elm.json on your default branch (`main` or `master`). It won't publish 1.0.0 for you, but it will release subsequent versions automatically. |
-
-## Checklist
+# `Elm Debug.log parser` [![Build Status](https://github.com/kraklin/elm-debug-parser/workflows/CI/badge.svg)](https://github.com/kraklin/elm-debug-parser/actions?query=branch%3Amain)
+Parser for tokenizing Debug.log messages, written in Elm.
 
 - [ ] Replace this with a nice readme (see this guide for designing Elm packages and writing nice docs/READMEs: <https://github.com/dillonkearns/idiomatic-elm-package-guide>)
 - [ ] Find all instances of replaceme in this repo and replace them
