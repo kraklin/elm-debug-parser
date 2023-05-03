@@ -21,7 +21,7 @@ type alias ParsedLog =
     }
 
 
-deadEndsToString : List P.DeadEnd -> String
+deadEndsToString : List DeadEnd -> String
 deadEndsToString deadEnds =
     let
         deadEndToString : DeadEnd -> String
