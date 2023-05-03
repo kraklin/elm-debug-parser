@@ -1,20 +1,20 @@
 {
-  "name": "REPLACEME-AUTHOR-SLASH-REPO",
+  "name": "kraklin/elm-debug-parser",
   "version": "0.0.1",
-  "description": "REPLACEME",
+  "description": "Elm parser for parsing Debug.log messages into reasonable tree to work with",
   "devDependencies": {
+    "elm-doc-preview": "^1.0.7",
     "elm-review": "^2.10.1",
     "elm-tooling": "1.14",
-    "elm-verify-examples": "5.2.0",
     "prettier": "^2.8.8"
   },
   "scripts": {
     "test": "elm-test-rs",
     "postinstall": "elm-tooling install"
   },
-  "author": "REPLACEME",
+  "author": "Tomas Latal",
   "license": "BSD-3-Clause",
   "dependencies": {
-    "elm-doc-preview": "^1.0.7"
+    "elm-test": "^0.19.1-revision12"
   }
 }
