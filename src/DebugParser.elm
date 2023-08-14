@@ -28,6 +28,9 @@ type alias Config =
     , number : Float -> ElmValue
     , function : ElmValue
     , internals : ElmValue
+    , unit : ElmValue
+    , bytes : Int -> ElmValue
+    , file : String -> ElmValue
     }
 
 
@@ -39,6 +42,9 @@ defaultConfig =
     , number = Plain << ElmNumber
     , function = Plain ElmFunction
     , internals = Plain ElmInternals
+    , unit = Plain ElmUnit
+    , bytes = Plain << ElmBytes
+    , file = Plain << ElmFile
     }
 
 
@@ -253,13 +259,13 @@ stringHelp endString charCheckFn revChunks =
         ]
 
 
-parseFile : Parser ElmValue
-parseFile =
+parseFile : Config -> Parser ElmValue
+parseFile config =
     P.succeed identity
         |. P.token "<"
         |= P.loop [] (stringHelp ">" (\c -> c /= '>'))
         |> P.andThen
-            (Maybe.map (\str -> P.succeed (Plain <| ElmFile str))
+            (Maybe.map (\str -> P.succeed (config.file str))
                 >> Maybe.withDefault (P.problem "File has no closing bracket")
             )
 
@@ -376,11 +382,11 @@ parseRecord =
             )
 
 
-parseBytes : Parser ElmValue
-parseBytes =
+parseBytes : Config -> Parser ElmValue
+parseBytes config =
     -- TODO: the backtrackable can be removed with the combination of file parser
     P.backtrackable <|
-        P.succeed (Plain << ElmBytes)
+        P.succeed config.bytes
             |. P.token "<"
             |= P.int
             |. P.token " bytes>"
@@ -452,8 +458,8 @@ typeHelp config values =
         ]
 
 
-parseValueWithParenthesis : Parser ElmValue
-parseValueWithParenthesis =
+parseValueWithParenthesis : Config -> Parser ElmValue
+parseValueWithParenthesis config =
     P.succeed identity
         |. P.token "("
         |= P.oneOf
@@ -490,7 +496,7 @@ parseValueWithParenthesis =
                             , P.succeed fstValue
                             ]
                     )
-            , P.succeed <| Plain ElmUnit
+            , P.succeed <| config.unit
             ]
         |. P.token ")"
 
@@ -543,11 +549,11 @@ parseValueWithoutCustomType config =
         , parseKeywords config
         , parseCustomTypeWithoutValue config
         , parseNumber config
-        , parseValueWithParenthesis
+        , parseValueWithParenthesis config
         , parseChar config
         , parseString config
-        , parseBytes
-        , parseFile
+        , parseBytes config
+        , parseFile config
         ]
 
 
@@ -568,11 +574,11 @@ parseValueWith config =
         , P.lazy (\_ -> parseCustomType config)
         , parseCustomTypeWithoutValue config
         , parseNumber config
-        , parseValueWithParenthesis
+        , parseValueWithParenthesis config
         , parseChar config
         , parseString config
-        , parseBytes
-        , parseFile
+        , parseBytes config
+        , parseFile config
         ]
 
 
