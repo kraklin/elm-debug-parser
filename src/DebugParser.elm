@@ -21,6 +21,19 @@ type alias ParsedLog =
     }
 
 
+type alias Config =
+    { bool : Bool -> ElmValue
+    , string : String -> ElmValue
+    }
+
+
+defaultConfig : Config
+defaultConfig =
+    { bool = Plain << ElmBool
+    , string = Plain << ElmString
+    }
+
+
 deadEndsToString : List DeadEnd -> String
 deadEndsToString deadEnds =
     let
@@ -197,13 +210,13 @@ parseSet =
 {- ---- String parser ------ -}
 
 
-parseString : Parser ElmValue
-parseString =
+parseString : Config -> Parser ElmValue
+parseString config =
     P.succeed identity
         |. P.token "\""
         |= P.loop [] (stringHelp "\"" isUninteresting)
         |> P.andThen
-            (Maybe.map (\str -> P.succeed (Plain <| ElmString str))
+            (Maybe.map (\str -> P.succeed (config.string str))
                 >> Maybe.withDefault (P.problem "One string has no closing double quotes")
             )
 
@@ -379,16 +392,16 @@ parseBytes =
 {--Custom type parser --}
 
 
-parseCustomTypeWithoutValue : Parser ElmValue
-parseCustomTypeWithoutValue =
+parseCustomTypeWithoutValue : Config -> Parser ElmValue
+parseCustomTypeWithoutValue config =
     P.succeed
         (\name ->
             case name of
                 "True" ->
-                    Plain <| ElmBool True
+                    config.bool True
 
                 "False" ->
-                    Plain <| ElmBool False
+                    config.bool False
 
                 "NaN" ->
                     Plain <| ElmNumber (0 / 0)
@@ -403,17 +416,17 @@ parseCustomTypeWithoutValue =
         |= parseTypeName
 
 
-parseCustomType : Parser ElmValue
-parseCustomType =
+parseCustomType : Config -> Parser ElmValue
+parseCustomType config =
     parseTypeName
         |> P.andThen
             (\name ->
                 case name of
                     "True" ->
-                        P.succeed (Plain <| ElmBool True)
+                        P.succeed (config.bool True)
 
                     "False" ->
-                        P.succeed (Plain <| ElmBool False)
+                        P.succeed (config.bool False)
 
                     "NaN" ->
                         P.succeed (Plain <| ElmNumber (0 / 0))
@@ -426,17 +439,17 @@ parseCustomType =
                             (\list ->
                                 Expandable False <| ElmType name (List.reverse list)
                             )
-                            |= P.loop [] typeHelp
+                            |= P.loop [] (typeHelp config)
             )
 
 
-typeHelp : List ElmValue -> Parser (Step (List ElmValue) (List ElmValue))
-typeHelp values =
+typeHelp : Config -> List ElmValue -> Parser (Step (List ElmValue) (List ElmValue))
+typeHelp config values =
     P.oneOf
         [ P.backtrackable <|
             P.succeed (\value -> Loop (value :: values))
                 |. P.token " "
-                |= parseValueWithoutCustomType
+                |= parseValueWithoutCustomType config
         , P.succeed (Done values)
         ]
 
@@ -521,8 +534,8 @@ parseDict =
 {- Main value parser -}
 
 
-parseValueWithoutCustomType : Parser ElmValue
-parseValueWithoutCustomType =
+parseValueWithoutCustomType : Config -> Parser ElmValue
+parseValueWithoutCustomType config =
     P.oneOf
         [ parseRecord
         , parseArray
@@ -530,11 +543,11 @@ parseValueWithoutCustomType =
         , parseDict
         , parseList
         , parseKeywords
-        , parseCustomTypeWithoutValue
+        , parseCustomTypeWithoutValue config
         , parseNumber
         , parseValueWithParenthesis
         , parseChar
-        , parseString
+        , parseString config
         , parseBytes
         , parseFile
         ]
@@ -542,6 +555,11 @@ parseValueWithoutCustomType =
 
 parseValue : Parser ElmValue
 parseValue =
+    parseValueWith defaultConfig
+
+
+parseValueWith : Config -> Parser ElmValue
+parseValueWith config =
     P.oneOf
         [ parseRecord
         , parseArray
@@ -549,12 +567,12 @@ parseValue =
         , parseDict
         , parseList
         , parseKeywords
-        , P.lazy (\_ -> parseCustomType)
-        , parseCustomTypeWithoutValue
+        , P.lazy (\_ -> parseCustomType config)
+        , parseCustomTypeWithoutValue config
         , parseNumber
         , parseValueWithParenthesis
         , parseChar
-        , parseString
+        , parseString config
         , parseBytes
         , parseFile
         ]
