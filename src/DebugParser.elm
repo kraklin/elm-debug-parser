@@ -25,6 +25,7 @@ type alias Config =
     { bool : Bool -> ElmValue
     , string : String -> ElmValue
     , char : Char -> ElmValue
+    , number : Float -> ElmValue
     }
 
 
@@ -33,6 +34,7 @@ defaultConfig =
     { bool = Plain << ElmBool
     , string = Plain << ElmString
     , char = Plain << ElmChar
+    , number = Plain << ElmNumber
     }
 
 
@@ -108,8 +110,8 @@ parseTypeName =
             |. P.chompWhile (\c -> Char.isAlphaNum c || c == '_')
 
 
-parseNumber : Parser ElmValue
-parseNumber =
+parseNumber : Config -> Parser ElmValue
+parseNumber config =
     let
         number =
             P.chompWhile (\char -> Char.isDigit char || char == '.' || char == '+' || char == 'e' || char == '-')
@@ -118,35 +120,27 @@ parseNumber =
                     (\str ->
                         case String.toFloat str of
                             Just float ->
-                                P.succeed (ElmNumber float)
+                                P.succeed float
 
                             Nothing ->
                                 P.problem "Unable to parse number"
                     )
-
-        negateNumber value =
-            case value of
-                ElmNumber float ->
-                    ElmNumber (negate float)
-
-                _ ->
-                    value
     in
     P.oneOf
-        [ P.succeed (ElmNumber (0 / 0))
+        [ P.succeed (0 / 0)
             |. P.keyword "NaN"
-        , P.succeed (ElmNumber (1 / 0))
+        , P.succeed (1 / 0)
             |. P.keyword "Infinity"
-        , P.succeed (ElmNumber -(1 / 0))
+        , P.succeed -(1 / 0)
             |. P.keyword "-Infinity"
         , P.oneOf
-            [ P.succeed negateNumber
+            [ P.succeed negate
                 |. P.symbol "-"
                 |= number
             , number
             ]
         ]
-        |> P.map Plain
+        |> P.map config.number
 
 
 parseKeywords : Parser ElmValue
@@ -405,10 +399,10 @@ parseCustomTypeWithoutValue config =
                     config.bool False
 
                 "NaN" ->
-                    Plain <| ElmNumber (0 / 0)
+                    config.number (0 / 0)
 
                 "Infinity" ->
-                    Plain <| ElmNumber (1 / 0)
+                    config.number (1 / 0)
 
                 _ ->
                     --NOTE: This is actually not expandable at all. Maybe a tip for a refactoring it later
@@ -430,10 +424,10 @@ parseCustomType config =
                         P.succeed (config.bool False)
 
                     "NaN" ->
-                        P.succeed (Plain <| ElmNumber (0 / 0))
+                        P.succeed (config.number (0 / 0))
 
                     "Infinity" ->
-                        P.succeed (Plain <| ElmNumber (1 / 0))
+                        P.succeed (config.number (1 / 0))
 
                     _ ->
                         P.succeed
@@ -545,7 +539,7 @@ parseValueWithoutCustomType config =
         , parseList
         , parseKeywords
         , parseCustomTypeWithoutValue config
-        , parseNumber
+        , parseNumber config
         , parseValueWithParenthesis
         , parseChar config
         , parseString config
@@ -570,7 +564,7 @@ parseValueWith config =
         , parseKeywords
         , P.lazy (\_ -> parseCustomType config)
         , parseCustomTypeWithoutValue config
-        , parseNumber
+        , parseNumber config
         , parseValueWithParenthesis
         , parseChar config
         , parseString config
