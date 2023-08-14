@@ -31,6 +31,7 @@ type alias Config =
     , unit : ElmValue
     , bytes : Int -> ElmValue
     , file : String -> ElmValue
+    , list : List ElmValue -> ElmValue
     }
 
 
@@ -45,6 +46,7 @@ defaultConfig =
     , unit = Plain ElmUnit
     , bytes = Plain << ElmBytes
     , file = Plain << ElmFile
+    , list = Expandable False << ElmSequence SeqList
     }
 
 
@@ -163,8 +165,8 @@ parseKeywords config =
         ]
 
 
-parseList : Parser ElmValue
-parseList =
+parseList : Config -> Parser ElmValue
+parseList config =
     P.sequence
         { start = "["
         , end = "]"
@@ -175,7 +177,7 @@ parseList =
         }
         |> P.map
             (\listVal ->
-                Expandable False <| ElmSequence SeqList listVal
+                config.list listVal
             )
 
 
@@ -545,7 +547,7 @@ parseValueWithoutCustomType config =
         , parseArray
         , parseSet
         , parseDict
-        , parseList
+        , parseList config
         , parseKeywords config
         , parseCustomTypeWithoutValue config
         , parseNumber config
@@ -569,7 +571,7 @@ parseValueWith config =
         , parseArray
         , parseSet
         , parseDict
-        , parseList
+        , parseList config
         , parseKeywords config
         , P.lazy (\_ -> parseCustomType config)
         , parseCustomTypeWithoutValue config
