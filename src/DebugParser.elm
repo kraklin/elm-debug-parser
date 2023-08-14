@@ -1,8 +1,8 @@
-module DebugParser exposing (ParsedLog, parse, parseWithOptionalTag)
+module DebugParser exposing (ParsedLog, Config, parse, parseWith, parseWithOptionalTag)
 
 {-|
 
-@docs ParsedLog, parse, parseWithOptionalTag
+@docs ParsedLog, Config, parse, parseWith, parseWithOptionalTag
 
 -}
 
@@ -15,12 +15,19 @@ import Parser as P exposing ((|.), (|=), DeadEnd, Parser, Step(..))
 Tag is part of the log message before the first colon.
 
 -}
-type alias ParsedLog =
+type alias ParsedLog a =
     { tag : String
-    , value : ElmValue
+    , value : a
     }
 
 
+{-| Record for setting transformations for parsed output types.
+
+You might need to transform debug values to something else than ElmValue type.
+Doing this after everything is parsed is quite performance heavy, so you can use this record and set the transformations
+that are used during parsing yourself. e.g. Json.Encode.Value, Html or just a nicer string.
+
+-}
 type alias Config a =
     { bool : Bool -> a
     , string : String -> a
@@ -581,7 +588,7 @@ parseValueWith config =
 
 {-| Try to parse Debug.log message.
 -}
-parse : String -> Result String ParsedLog
+parse : String -> Result String (ParsedLog ElmValue)
 parse stringToParse =
     stringToParse
         |> String.trim
@@ -595,12 +602,28 @@ parse stringToParse =
         |> Result.mapError deadEndsToString
 
 
+{-| Try to parse Debug.log message with custom output data type.
+-}
+parseWith : Config a -> String -> Result String (ParsedLog a)
+parseWith config stringToParse =
+    stringToParse
+        |> String.trim
+        |> P.run
+            (P.succeed ParsedLog
+                |= (P.getChompedString <| P.chompUntil ": ")
+                |. P.token ": "
+                |= parseValueWith config
+                |. P.end
+            )
+        |> Result.mapError deadEndsToString
+
+
 {-| Try to parse Debug.log message including the tag. If it is not parsable, try to parse it without the tag.
 
 This one is safer, but it might be slow due to the fact that it is trying two approaches. It should be used with caution.
 
 -}
-parseWithOptionalTag : String -> Result String ParsedLog
+parseWithOptionalTag : String -> Result String (ParsedLog ElmValue)
 parseWithOptionalTag stringToParse =
     stringToParse
         |> String.trim
