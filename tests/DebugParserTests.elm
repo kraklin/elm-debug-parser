@@ -1,6 +1,6 @@
 module DebugParserTests exposing (fuzzSuite, suite)
 
-import DebugParser
+import DebugParser exposing (ParsedLog)
 import DebugParser.ElmValue exposing (ElmValue(..), ExpandableValue(..), PlainValue(..), SequenceType(..))
 import Expect
 import Fuzz exposing (Fuzzer)
@@ -14,6 +14,11 @@ type alias RecursiveFuzzerConfig a =
     , base : Fuzzer a
     , recurse : Fuzzer a -> Fuzzer a
     }
+
+
+parse : String -> Result String (ParsedLog ElmValue)
+parse =
+    DebugParser.parse DebugParser.defaultConfig
 
 
 recursiveFuzzer : RecursiveFuzzerConfig a -> Fuzzer a
@@ -366,17 +371,17 @@ suite =
     describe "Parse" <|
         [ test "Simple bolean value"
             (\_ ->
-                Expect.equal (DebugParser.parse "Debug: True")
+                Expect.equal (parse "Debug: True")
                     (Ok { tag = "Debug", value = Plain <| ElmBool True })
             )
         , test "Tuple"
             (\_ ->
-                Expect.equal (DebugParser.parse "Debug: (True,False)")
+                Expect.equal (parse "Debug: (True,False)")
                     (Ok { tag = "Debug", value = Expandable False <| ElmSequence SeqTuple [ Plain <| ElmBool True, Plain <| ElmBool False ] })
             )
         , test "Nested Tuple"
             (\_ ->
-                Expect.equal (DebugParser.parse "Debug: (True,(2,()))")
+                Expect.equal (parse "Debug: (True,(2,()))")
                     (Ok
                         { tag = "Debug"
                         , value =
@@ -391,26 +396,26 @@ suite =
             )
         , test "Empty list"
             (\_ ->
-                Expect.equal (DebugParser.parse "Debug: []")
+                Expect.equal (parse "Debug: []")
                     (Ok { tag = "Debug", value = Expandable False <| ElmSequence SeqList [] })
             )
         , test "Parse bytes"
             (\_ ->
                 "msg: <123 bytes>"
-                    |> DebugParser.parse
+                    |> parse
                     |> Result.map .value
                     |> Expect.equal (Ok (Plain <| ElmBytes 123))
             )
         , test "Parse file"
             (\_ ->
                 "msg: <filename>"
-                    |> DebugParser.parse
+                    |> parse
                     |> Result.map .value
                     |> Expect.equal (Ok (Plain <| ElmFile "filename"))
             )
         , test "Parse NaN"
             (\_ ->
-                DebugParser.parse "Debug: NaN"
+                parse "Debug: NaN"
                     |> Result.map
                         (\parsed ->
                             case parsed.value of
@@ -424,16 +429,16 @@ suite =
             )
         , test "Parse string without closing quote fails"
             (\_ ->
-                Expect.err (DebugParser.parse "Debug: \"Debug message")
+                Expect.err (parse "Debug: \"Debug message")
             )
         , test "Parse string with emoji"
             (\_ ->
-                Expect.equal (DebugParser.parse "Debug: \"Debug message👨\u{200D}💻\"")
+                Expect.equal (parse "Debug: \"Debug message👨\u{200D}💻\"")
                     (Ok { tag = "Debug", value = Plain <| ElmString "Debug message👨\u{200D}💻" })
             )
         , test "Parse nonstandard chars "
             (\_ ->
-                Expect.equal (DebugParser.parse "Debug: ['\u{000D}', '👨', '\\'', '\n' ]")
+                Expect.equal (parse "Debug: ['\u{000D}', '👨', '\\'', '\n' ]")
                     (Ok
                         { tag = "Debug"
                         , value =
@@ -450,27 +455,27 @@ suite =
         , describe "Multiple types"
             [ test "Just boolean"
                 (\_ ->
-                    Expect.equal (DebugParser.parse "Debug: Just True")
+                    Expect.equal (parse "Debug: Just True")
                         (Ok { tag = "Debug", value = Expandable False <| ElmType "Just" [ Plain <| ElmBool True ] })
                 )
             , test "Multiple values "
                 (\_ ->
-                    Expect.equal (DebugParser.parse "Debug: Just True Nothing")
+                    Expect.equal (parse "Debug: Just True Nothing")
                         (Ok { tag = "Debug", value = Expandable False <| ElmType "Just" [ Plain <| ElmBool True, Expandable False <| ElmType "Nothing" [] ] })
                 )
             , test "Multiple values with parentheses"
                 (\_ ->
-                    Expect.equal (DebugParser.parse "Debug: Just (Just True)")
+                    Expect.equal (parse "Debug: Just (Just True)")
                         (Ok { tag = "Debug", value = Expandable False <| ElmType "Just" [ Expandable False <| ElmType "Just" [ Plain <| ElmBool True ] ] })
                 )
             , test "Multiple values without parentheses"
                 (\_ ->
-                    Expect.equal (DebugParser.parse "Debug: A A ()")
+                    Expect.equal (parse "Debug: A A ()")
                         (Ok { tag = "Debug", value = Expandable False <| ElmType "A" [ Expandable False <| ElmType "A" [], Plain <| ElmUnit ] })
                 )
             , test "Multiple values with different types"
                 (\_ ->
-                    Expect.equal (DebugParser.parse "Debug: Custom (Just True 12 \"string\" Nothing) Infinity -Infinity")
+                    Expect.equal (parse "Debug: Custom (Just True 12 \"string\" Nothing) Infinity -Infinity")
                         (Ok
                             { tag = "Debug"
                             , value =
@@ -493,13 +498,13 @@ suite =
             ]
         , test "Custom type at the end of record"
             (\_ ->
-                Expect.equal (DebugParser.parse "Debug: { a = A }")
+                Expect.equal (parse "Debug: { a = A }")
                     (Ok { tag = "Debug", value = Expandable False <| ElmRecord [ ( "a", Expandable False <| ElmType "A" [] ) ] })
             )
         , test "CustomType within custom type"
             (\_ ->
                 "msg: StoreMsg (Fetched { copiedFrom = Nothing })"
-                    |> DebugParser.parse
+                    |> parse
                     |> Expect.equal
                         (Ok
                             { tag = "msg"
@@ -519,7 +524,7 @@ suite =
         , test "Custom type with Dict value"
             (\_ ->
                 "msg: Leaf \"A\" (Dict.fromList [])"
-                    |> DebugParser.parse
+                    |> parse
                     |> Expect.equal
                         (Ok
                             { tag = "msg"
@@ -532,7 +537,7 @@ suite =
         , test "problematic group"
             (\_ ->
                 "msg: Group (Dict.fromList [(\"city\",Value (String \"\"))])"
-                    |> DebugParser.parse
+                    |> parse
                     |> Expect.equal
                         (Ok
                             { tag = "msg"
@@ -558,12 +563,12 @@ suite =
         , test "real world example is parsed"
             (\_ ->
                 "Debug with 2 numbers 7 chars like !_+))($ and emojis 💪 : { array = Array.fromList [1,2,3,4,5678,3464637,893145,-29], bools = (True,False), complexTuple = (1,(\"longer string\",(\"much longer string\",1))), dict = Dict.fromList [(1,\"a\"),(2,\"b\"),(234,\"String longer than one char\")], dictWithTuples = Dict.fromList [((0,\"b\",1),\"a\"),((0,\"c\",1),\"b\"),((4,\"d\",1),\"String longer than one char\")], float = 123.56, function = <function>, int = 123, listOfLists = [[[\"a\",\"b\"],[\"c\",\"d\"]],[[\"e\",\"f\"],[\"g\",\"h\"]]], listSingleton = [\"Singleton\"], nonEmptyList = (1,[]), set = Set.fromList [\"Some really long string with some nonsense\",\"a\",\"b\"], string = \"Some string\", triplet = (1,\"b\",1), tuple = (1,2), unit = (), test = A { custom = B } }"
-                    |> DebugParser.parse
+                    |> parse
                     |> Expect.ok
             )
         , test "Parse char with two backslashes "
             (\_ ->
-                Expect.equal (DebugParser.parse "Debug: ['\\t' ]")
+                Expect.equal (parse "Debug: ['\\t' ]")
                     (Ok
                         { tag = "Debug"
                         , value =
@@ -579,7 +584,7 @@ fuzzSuite : Test
 fuzzSuite =
     let
         checkParsing ( str, val ) =
-            DebugParser.parse (": " ++ str)
+            parse (": " ++ str)
                 |> Result.map .value
                 |> Expect.equal (Ok val)
     in
@@ -587,7 +592,7 @@ fuzzSuite =
         [ fuzz fuzzTag
             "Tag can be any string except string contains `: `"
             (\tag ->
-                Expect.equal (DebugParser.parse (tag ++ ": True"))
+                Expect.equal (parse (tag ++ ": True"))
                     (Ok { tag = tag, value = Plain <| ElmBool True })
             )
         , fuzz fuzzValue

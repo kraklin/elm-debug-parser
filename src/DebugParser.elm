@@ -1,8 +1,12 @@
-module DebugParser exposing (ParsedLog, Config, parse, parseWith, parseWithOptionalTag)
+module DebugParser exposing
+    ( ParsedLog, parse, parseValue
+    , Config, defaultConfig
+    )
 
 {-|
 
-@docs ParsedLog, Config, parse, parseWith, parseWithOptionalTag
+@docs ParsedLog, parse, parseValue
+@docs Config, defaultConfig
 
 -}
 
@@ -48,6 +52,8 @@ type alias Config a =
     }
 
 
+{-| Default configuration for parsing debug log into ElmValue type
+-}
 defaultConfig : Config ElmValue
 defaultConfig =
     { bool = Plain << ElmBool
@@ -588,24 +594,8 @@ parseValueWith config =
 
 {-| Try to parse Debug.log message.
 -}
-parse : String -> Result String (ParsedLog ElmValue)
-parse stringToParse =
-    stringToParse
-        |> String.trim
-        |> P.run
-            (P.succeed ParsedLog
-                |= (P.getChompedString <| P.chompUntil ": ")
-                |. P.token ": "
-                |= parseValueWith defaultConfig
-                |. P.end
-            )
-        |> Result.mapError deadEndsToString
-
-
-{-| Try to parse Debug.log message with custom output data type.
--}
-parseWith : Config a -> String -> Result String (ParsedLog a)
-parseWith config stringToParse =
+parse : Config a -> String -> Result String (ParsedLog a)
+parse config stringToParse =
     stringToParse
         |> String.trim
         |> P.run
@@ -618,27 +608,15 @@ parseWith config stringToParse =
         |> Result.mapError deadEndsToString
 
 
-{-| Try to parse Debug.log message including the tag. If it is not parsable, try to parse it without the tag.
-
-This one is safer, but it might be slow due to the fact that it is trying two approaches. It should be used with caution.
-
+{-| This function parses only the debug value without a tag, e.g. output of Debug.toString
 -}
-parseWithOptionalTag : String -> Result String (ParsedLog ElmValue)
-parseWithOptionalTag stringToParse =
+parseValue : Config a -> String -> Result String a
+parseValue config stringToParse =
     stringToParse
         |> String.trim
         |> P.run
-            (P.oneOf
-                [ P.backtrackable
-                    (P.succeed ParsedLog
-                        |= (P.getChompedString <| P.chompUntil ": ")
-                        |. P.token ": "
-                        |= parseValueWith defaultConfig
-                        |. P.end
-                    )
-                , P.succeed (ParsedLog "Debug message")
-                    |= parseValueWith defaultConfig
-                    |. P.end
-                ]
+            (P.succeed identity
+                |= parseValueWith config
+                |. P.end
             )
         |> Result.mapError deadEndsToString
