@@ -24,6 +24,7 @@ type alias ParsedLog =
 type alias Config =
     { bool : Bool -> ElmValue
     , string : String -> ElmValue
+    , char : Char -> ElmValue
     }
 
 
@@ -31,6 +32,7 @@ defaultConfig : Config
 defaultConfig =
     { bool = Plain << ElmBool
     , string = Plain << ElmString
+    , char = Plain << ElmChar
     }
 
 
@@ -315,27 +317,27 @@ addHex char total =
 {--Char parser --}
 
 
-parseChar : Parser ElmValue
-parseChar =
+parseChar : Config -> Parser ElmValue
+parseChar config =
     P.oneOf
         [ P.succeed identity
             |. P.token "'\\''"
-            |> P.map (\_ -> Plain <| ElmChar '\'')
+            |> P.map (\_ -> config.char '\'')
         , P.succeed identity
             |. P.token "'\\t'"
-            |> P.map (\_ -> Plain <| ElmChar '\t')
+            |> P.map (\_ -> config.char '\t')
         , P.succeed identity
             |. P.token "'\\n'"
-            |> P.map (\_ -> Plain <| ElmChar '\n')
+            |> P.map (\_ -> config.char '\n')
         , P.succeed identity
             |. P.token "'\\v'"
-            |> P.map (\_ -> Plain <| ElmChar '\u{000B}')
+            |> P.map (\_ -> config.char '\u{000B}')
         , P.succeed identity
             |. P.token "'\\r'"
-            |> P.map (\_ -> Plain <| ElmChar '\u{000D}')
+            |> P.map (\_ -> config.char '\u{000D}')
         , P.succeed identity
             |. P.token "'\\0'"
-            |> P.map (\_ -> Plain <| ElmChar '\u{0000}')
+            |> P.map (\_ -> config.char '\u{0000}')
         , P.succeed identity
             |. P.token "'"
             |= P.getChompedString (P.chompUntil "'")
@@ -345,8 +347,7 @@ parseChar =
                     >> List.reverse
                     >> List.head
                     >> Maybe.withDefault 'x'
-                    >> ElmChar
-                    >> Plain
+                    >> config.char
                 )
         ]
 
@@ -546,7 +547,7 @@ parseValueWithoutCustomType config =
         , parseCustomTypeWithoutValue config
         , parseNumber
         , parseValueWithParenthesis
-        , parseChar
+        , parseChar config
         , parseString config
         , parseBytes
         , parseFile
@@ -571,7 +572,7 @@ parseValueWith config =
         , parseCustomTypeWithoutValue config
         , parseNumber
         , parseValueWithParenthesis
-        , parseChar
+        , parseChar config
         , parseString config
         , parseBytes
         , parseFile
