@@ -21,27 +21,27 @@ type alias ParsedLog =
     }
 
 
-type alias Config =
-    { bool : Bool -> ElmValue
-    , string : String -> ElmValue
-    , char : Char -> ElmValue
-    , number : Float -> ElmValue
-    , function : ElmValue
-    , internals : ElmValue
-    , unit : ElmValue
-    , bytes : Int -> ElmValue
-    , file : String -> ElmValue
-    , list : List ElmValue -> ElmValue
-    , array : List ElmValue -> ElmValue
-    , set : List ElmValue -> ElmValue
-    , tuple : List ElmValue -> ElmValue
-    , customType : String -> List ElmValue -> ElmValue
-    , record : List ( String, ElmValue ) -> ElmValue
-    , dict : List ( ElmValue, ElmValue ) -> ElmValue
+type alias Config a =
+    { bool : Bool -> a
+    , string : String -> a
+    , char : Char -> a
+    , number : Float -> a
+    , function : a
+    , internals : a
+    , unit : a
+    , bytes : Int -> a
+    , file : String -> a
+    , list : List a -> a
+    , array : List a -> a
+    , set : List a -> a
+    , tuple : List a -> a
+    , customType : String -> List a -> a
+    , record : List ( String, a ) -> a
+    , dict : List ( a, a ) -> a
     }
 
 
-defaultConfig : Config
+defaultConfig : Config ElmValue
 defaultConfig =
     { bool = Plain << ElmBool
     , string = Plain << ElmString
@@ -134,7 +134,7 @@ parseTypeName =
             |. P.chompWhile (\c -> Char.isAlphaNum c || c == '_')
 
 
-parseNumber : Config -> Parser ElmValue
+parseNumber : Config a -> Parser a
 parseNumber config =
     let
         number =
@@ -167,7 +167,7 @@ parseNumber config =
         |> P.map config.number
 
 
-parseKeywords : Config -> Parser ElmValue
+parseKeywords : Config a -> Parser a
 parseKeywords config =
     P.oneOf
         [ P.succeed config.internals
@@ -177,14 +177,14 @@ parseKeywords config =
         ]
 
 
-parseList : Config -> Parser ElmValue
+parseList : Config a -> Parser a
 parseList config =
     P.sequence
         { start = "["
         , end = "]"
         , separator = ","
         , spaces = P.spaces
-        , item = P.lazy (\_ -> parseValue)
+        , item = P.lazy (\_ -> parseValueWith config)
         , trailing = P.Forbidden
         }
         |> P.map
@@ -193,27 +193,27 @@ parseList config =
             )
 
 
-parseArray : Config -> Parser ElmValue
+parseArray : Config a -> Parser a
 parseArray config =
     P.sequence
         { start = "Array.fromList ["
         , end = "]"
         , separator = ","
         , spaces = P.spaces
-        , item = P.lazy (\_ -> parseValue)
+        , item = P.lazy (\_ -> parseValueWith config)
         , trailing = P.Forbidden
         }
         |> P.map config.array
 
 
-parseSet : Config -> Parser ElmValue
+parseSet : Config a -> Parser a
 parseSet config =
     P.sequence
         { start = "Set.fromList ["
         , end = "]"
         , separator = ","
         , spaces = P.spaces
-        , item = P.lazy (\_ -> parseValue)
+        , item = P.lazy (\_ -> parseValueWith config)
         , trailing = P.Forbidden
         }
         |> P.map config.set
@@ -223,7 +223,7 @@ parseSet config =
 {- ---- String parser ------ -}
 
 
-parseString : Config -> Parser ElmValue
+parseString : Config a -> Parser a
 parseString config =
     P.succeed identity
         |. P.token "\""
@@ -267,7 +267,7 @@ stringHelp endString charCheckFn revChunks =
         ]
 
 
-parseFile : Config -> Parser ElmValue
+parseFile : Config a -> Parser a
 parseFile config =
     P.succeed identity
         |. P.token "<"
@@ -328,7 +328,7 @@ addHex char total =
 {--Char parser --}
 
 
-parseChar : Config -> Parser ElmValue
+parseChar : Config a -> Parser a
 parseChar config =
     P.oneOf
         [ P.succeed identity
@@ -367,7 +367,7 @@ parseChar config =
 {--Record parser --}
 
 
-parseRecord : Config -> Parser ElmValue
+parseRecord : Config a -> Parser a
 parseRecord config =
     P.sequence
         { start = "{"
@@ -380,14 +380,14 @@ parseRecord config =
                     P.succeed Tuple.pair
                         |= parseVariableName
                         |. P.token " = "
-                        |= parseValue
+                        |= parseValueWith config
                 )
         , trailing = P.Forbidden
         }
         |> P.map config.record
 
 
-parseBytes : Config -> Parser ElmValue
+parseBytes : Config a -> Parser a
 parseBytes config =
     -- TODO: the backtrackable can be removed with the combination of file parser
     P.backtrackable <|
@@ -401,7 +401,7 @@ parseBytes config =
 {--Custom type parser --}
 
 
-parseCustomTypeWithoutValue : Config -> Parser ElmValue
+parseCustomTypeWithoutValue : Config a -> Parser a
 parseCustomTypeWithoutValue config =
     P.succeed
         (\name ->
@@ -425,7 +425,7 @@ parseCustomTypeWithoutValue config =
         |= parseTypeName
 
 
-parseCustomType : Config -> Parser ElmValue
+parseCustomType : Config a -> Parser a
 parseCustomType config =
     parseTypeName
         |> P.andThen
@@ -452,7 +452,7 @@ parseCustomType config =
             )
 
 
-typeHelp : Config -> List ElmValue -> Parser (Step (List ElmValue) (List ElmValue))
+typeHelp : Config a -> List a -> Parser (Step (List a) (List a))
 typeHelp config values =
     P.oneOf
         [ P.backtrackable <|
@@ -463,14 +463,14 @@ typeHelp config values =
         ]
 
 
-parseValueWithParenthesis : Config -> Parser ElmValue
+parseValueWithParenthesis : Config a -> Parser a
 parseValueWithParenthesis config =
     P.succeed identity
         |. P.token "("
         |= P.oneOf
             [ P.succeed identity
                 |. P.spaces
-                |= P.lazy (\_ -> parseValue)
+                |= P.lazy (\_ -> parseValueWith config)
                 |> P.andThen
                     (\fstValue ->
                         P.oneOf
@@ -478,7 +478,7 @@ parseValueWithParenthesis config =
                                 |. P.spaces
                                 |. P.token ","
                                 |. P.spaces
-                                |= P.lazy (\_ -> parseValue)
+                                |= P.lazy (\_ -> parseValueWith config)
                                 |> P.andThen
                                     (\sndValue ->
                                         P.succeed identity
@@ -488,7 +488,7 @@ parseValueWithParenthesis config =
                                                     |. P.spaces
                                                     |. P.token ","
                                                     |. P.spaces
-                                                    |= P.lazy (\_ -> parseValue)
+                                                    |= P.lazy (\_ -> parseValueWith config)
                                                     |> P.map
                                                         (\rdValue ->
                                                             config.tuple [ fstValue, sndValue, rdValue ]
@@ -510,7 +510,7 @@ parseValueWithParenthesis config =
 {--Dict parser-}
 
 
-parseDict : Config -> Parser ElmValue
+parseDict : Config a -> Parser a
 parseDict config =
     P.sequence
         { start = "Dict.fromList ["
@@ -523,11 +523,11 @@ parseDict config =
                     P.succeed Tuple.pair
                         |. P.token "("
                         |. P.spaces
-                        |= P.lazy (\_ -> parseValue)
+                        |= P.lazy (\_ -> parseValueWith config)
                         |. P.spaces
                         |. P.token ","
                         |. P.spaces
-                        |= parseValue
+                        |= parseValueWith config
                         |. P.spaces
                         |. P.token ")"
                 )
@@ -540,7 +540,7 @@ parseDict config =
 {- Main value parser -}
 
 
-parseValueWithoutCustomType : Config -> Parser ElmValue
+parseValueWithoutCustomType : Config a -> Parser a
 parseValueWithoutCustomType config =
     P.oneOf
         [ parseRecord config
@@ -559,12 +559,7 @@ parseValueWithoutCustomType config =
         ]
 
 
-parseValue : Parser ElmValue
-parseValue =
-    parseValueWith defaultConfig
-
-
-parseValueWith : Config -> Parser ElmValue
+parseValueWith : Config a -> Parser a
 parseValueWith config =
     P.oneOf
         [ parseRecord config
@@ -594,7 +589,7 @@ parse stringToParse =
             (P.succeed ParsedLog
                 |= (P.getChompedString <| P.chompUntil ": ")
                 |. P.token ": "
-                |= parseValue
+                |= parseValueWith defaultConfig
                 |. P.end
             )
         |> Result.mapError deadEndsToString
@@ -615,11 +610,11 @@ parseWithOptionalTag stringToParse =
                     (P.succeed ParsedLog
                         |= (P.getChompedString <| P.chompUntil ": ")
                         |. P.token ": "
-                        |= parseValue
+                        |= parseValueWith defaultConfig
                         |. P.end
                     )
                 , P.succeed (ParsedLog "Debug message")
-                    |= parseValue
+                    |= parseValueWith defaultConfig
                     |. P.end
                 ]
             )
