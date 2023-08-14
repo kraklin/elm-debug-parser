@@ -26,6 +26,8 @@ type alias Config =
     , string : String -> ElmValue
     , char : Char -> ElmValue
     , number : Float -> ElmValue
+    , function : ElmValue
+    , internals : ElmValue
     }
 
 
@@ -35,6 +37,8 @@ defaultConfig =
     , string = Plain << ElmString
     , char = Plain << ElmChar
     , number = Plain << ElmNumber
+    , function = Plain ElmFunction
+    , internals = Plain ElmInternals
     }
 
 
@@ -143,15 +147,14 @@ parseNumber config =
         |> P.map config.number
 
 
-parseKeywords : Parser ElmValue
-parseKeywords =
+parseKeywords : Config -> Parser ElmValue
+parseKeywords config =
     P.oneOf
-        [ P.succeed ElmInternals
+        [ P.succeed config.internals
             |. P.keyword "<internals>"
-        , P.succeed ElmFunction
+        , P.succeed config.function
             |. P.keyword "<function>"
         ]
-        |> P.map Plain
 
 
 parseList : Parser ElmValue
@@ -537,7 +540,7 @@ parseValueWithoutCustomType config =
         , parseSet
         , parseDict
         , parseList
-        , parseKeywords
+        , parseKeywords config
         , parseCustomTypeWithoutValue config
         , parseNumber config
         , parseValueWithParenthesis
@@ -561,7 +564,7 @@ parseValueWith config =
         , parseSet
         , parseDict
         , parseList
-        , parseKeywords
+        , parseKeywords config
         , P.lazy (\_ -> parseCustomType config)
         , parseCustomTypeWithoutValue config
         , parseNumber config
