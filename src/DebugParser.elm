@@ -32,6 +32,12 @@ type alias Config =
     , bytes : Int -> ElmValue
     , file : String -> ElmValue
     , list : List ElmValue -> ElmValue
+    , array : List ElmValue -> ElmValue
+    , set : List ElmValue -> ElmValue
+    , tuple : List ElmValue -> ElmValue
+    , customType : String -> List ElmValue -> ElmValue
+    , record : List ( String, ElmValue ) -> ElmValue
+    , dict : List ( ElmValue, ElmValue ) -> ElmValue
     }
 
 
@@ -47,6 +53,12 @@ defaultConfig =
     , bytes = Plain << ElmBytes
     , file = Plain << ElmFile
     , list = Expandable False << ElmSequence SeqList
+    , array = Expandable False << ElmSequence SeqArray
+    , set = Expandable False << ElmSequence SeqSet
+    , tuple = Expandable False << ElmSequence SeqTuple
+    , customType = \name values -> Expandable False <| ElmType name values
+    , record = Expandable False << ElmRecord
+    , dict = Expandable False << ElmDict
     }
 
 
@@ -181,8 +193,8 @@ parseList config =
             )
 
 
-parseArray : Parser ElmValue
-parseArray =
+parseArray : Config -> Parser ElmValue
+parseArray config =
     P.sequence
         { start = "Array.fromList ["
         , end = "]"
@@ -191,14 +203,11 @@ parseArray =
         , item = P.lazy (\_ -> parseValue)
         , trailing = P.Forbidden
         }
-        |> P.map
-            (\listVal ->
-                Expandable False <| ElmSequence SeqArray listVal
-            )
+        |> P.map config.array
 
 
-parseSet : Parser ElmValue
-parseSet =
+parseSet : Config -> Parser ElmValue
+parseSet config =
     P.sequence
         { start = "Set.fromList ["
         , end = "]"
@@ -207,10 +216,7 @@ parseSet =
         , item = P.lazy (\_ -> parseValue)
         , trailing = P.Forbidden
         }
-        |> P.map
-            (\listVal ->
-                Expandable False <| ElmSequence SeqSet listVal
-            )
+        |> P.map config.set
 
 
 
@@ -361,8 +367,8 @@ parseChar config =
 {--Record parser --}
 
 
-parseRecord : Parser ElmValue
-parseRecord =
+parseRecord : Config -> Parser ElmValue
+parseRecord config =
     P.sequence
         { start = "{"
         , end = "}"
@@ -378,10 +384,7 @@ parseRecord =
                 )
         , trailing = P.Forbidden
         }
-        |> P.map
-            (\listVal ->
-                Expandable False <| ElmRecord listVal
-            )
+        |> P.map config.record
 
 
 parseBytes : Config -> Parser ElmValue
@@ -417,7 +420,7 @@ parseCustomTypeWithoutValue config =
 
                 _ ->
                     --NOTE: This is actually not expandable at all. Maybe a tip for a refactoring it later
-                    Expandable False <| ElmType name []
+                    config.customType name []
         )
         |= parseTypeName
 
@@ -443,7 +446,7 @@ parseCustomType config =
                     _ ->
                         P.succeed
                             (\list ->
-                                Expandable False <| ElmType name (List.reverse list)
+                                config.customType name (List.reverse list)
                             )
                             |= P.loop [] (typeHelp config)
             )
@@ -488,11 +491,11 @@ parseValueWithParenthesis config =
                                                     |= P.lazy (\_ -> parseValue)
                                                     |> P.map
                                                         (\rdValue ->
-                                                            Expandable False <| ElmSequence SeqTuple [ fstValue, sndValue, rdValue ]
+                                                            config.tuple [ fstValue, sndValue, rdValue ]
                                                         )
                                                 , -- ("x", "y")
                                                   P.succeed
-                                                    (Expandable False <| ElmSequence SeqTuple [ fstValue, sndValue ])
+                                                    (config.tuple [ fstValue, sndValue ])
                                                 ]
                                     )
                             , P.succeed fstValue
@@ -507,8 +510,8 @@ parseValueWithParenthesis config =
 {--Dict parser-}
 
 
-parseDict : Parser ElmValue
-parseDict =
+parseDict : Config -> Parser ElmValue
+parseDict config =
     P.sequence
         { start = "Dict.fromList ["
         , end = "]"
@@ -530,10 +533,7 @@ parseDict =
                 )
         , trailing = P.Forbidden
         }
-        |> P.map
-            (\listVal ->
-                Expandable False <| ElmDict listVal
-            )
+        |> P.map config.dict
 
 
 
@@ -543,10 +543,10 @@ parseDict =
 parseValueWithoutCustomType : Config -> Parser ElmValue
 parseValueWithoutCustomType config =
     P.oneOf
-        [ parseRecord
-        , parseArray
-        , parseSet
-        , parseDict
+        [ parseRecord config
+        , parseArray config
+        , parseSet config
+        , parseDict config
         , parseList config
         , parseKeywords config
         , parseCustomTypeWithoutValue config
@@ -567,10 +567,10 @@ parseValue =
 parseValueWith : Config -> Parser ElmValue
 parseValueWith config =
     P.oneOf
-        [ parseRecord
-        , parseArray
-        , parseSet
-        , parseDict
+        [ parseRecord config
+        , parseArray config
+        , parseSet config
+        , parseDict config
         , parseList config
         , parseKeywords config
         , P.lazy (\_ -> parseCustomType config)
